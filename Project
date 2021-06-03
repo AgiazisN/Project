@@ -1,0 +1,77 @@
+import RPi.GPIO as GPIO
+import time
+import requests
+import os
+GPIO.setmode(GPIO.BCM)
+pir = 4
+GPIO.setup(pir, GPIO.IN)
+
+#lists|variables
+ALERT_List = ["Nick"]
+device_List = ["192.168.0.12"]
+Alert_Participants = []
+Alert_NoParticipants = []
+Counter = 1
+outputString = ""
+
+# Check if motion is detected
+def checkMotion():
+    if(GPIO.input(pir) == 1):
+        print("Motion Alert!")
+        return 1;
+    else:
+        return 0;
+
+# Checks the devices to see who is home
+def checkHome():
+    for i,val in enumerate(device_List ):
+        response = os.system("ping -c 1 " + val)
+        if(response == 0):
+            Alert_Participants.append(ALERT_List [i])
+        else:
+            Alert_NoParticipants.append(ALERT_List [i])
+
+# PHOTO alert that goes onto desktop
+def SecurityPictureAlert():
+    global Counter
+    operationString = ("sudo fswebcam -r 1920x1080 --no-banner MotionDetector{}.jpg").format(Counter)
+    os.system(operationString)
+    Counter += 1
+
+# Debugging function
+def printOutput():
+   for i in Alert_Participants:
+       print("Check: " + i + " is now home...Welcome!")
+   for i in Alert_NoParticipants:
+       print("Check: " + i + " is NOT home!")
+
+def clearList():
+    Alert_Participants.clear()
+    Alert_NoParticipants.clear()
+
+# Concatenate IFTT output string
+def OutString():
+    global outputString
+    for i in Alert_Participants:
+        outputString += " " + i
+    if not outputString:
+        r = requests.post('https://maker.ifttt.com/use/UDZi3aRos_c4w7hNcYHE_')
+    else:
+        r = requests.post('https://maker.ifttt.com/use/UDZi3aRos_c4w7hNcYHE_')
+    outputString = ""
+
+try:
+    while True:
+        if(checkMotion() == 1):
+            SecurityPictureAlert()
+            time.sleep(0.2)
+            checkHome()
+            OutString()
+            printOutput()
+            clearList()
+            print("Area scan Complete.")
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    print(" Quit")
+    GPIO.cleanup()
